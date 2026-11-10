@@ -10,6 +10,14 @@ import ConnectCard from "./connect-card";
 export interface HealthState {
   ok: boolean;
   database: string;
+  turso?: {
+    urlSet: boolean;
+    urlPrefix: string;
+    tokenSet: boolean;
+    tokenLength: number;
+    connected: boolean;
+    error: string | null;
+  };
   mcpEndpoint: string;
   models: { canonical: string; type: string; providers: string[] }[];
   merger: { base: string; healthy: boolean };
@@ -34,6 +42,7 @@ export default function Dashboard() {
 
   const dbOk = health?.ok === true;
   const mergerHealthy = health?.merger?.healthy === true;
+  const dbError = !dbOk ? health?.turso?.error ?? null : null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -76,6 +85,20 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+        {/* شريط تشخيص الاتصال — يظهر السبب الدقيق عند فشل الوصول للقاعدة */}
+        {!dbOk && dbError && (
+          <div className="bg-red-50 border-t border-red-200 px-4 py-2">
+            <div className="max-w-6xl mx-auto text-xs text-red-800 leading-6">
+              <strong>تشخيص قاعدة البيانات:</strong> {dbError}
+              {health?.turso && (health.turso.urlSet || health.turso.tokenSet) && (
+                <span className="block text-red-600">
+                  الموجود حاليًا على الخادم — الرابط: {health.turso.urlSet ? `«${health.turso.urlPrefix}…»` : "غير مضبوط"} ·
+                  التوكن: {health.turso.tokenSet ? `مضبوط (${health.turso.tokenLength} حرفًا)` : "غير مضبوط"}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* البطاقات الثلاث */}

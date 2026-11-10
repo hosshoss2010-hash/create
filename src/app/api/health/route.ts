@@ -1,19 +1,32 @@
 // فحص الصحة العام: قاعدة البيانات + خدمة الدمج + قائمة الموديلات
+// يتضمن تشخيصًا دقيقًا لاتصال Turso (بادئة الرابط فقط — لا أسرار)
 import { NextResponse } from "next/server";
-import { dbHealthy, ensureSchema } from "@/lib/turso";
+import { ensureSchema, diagnoseDb, type DbDiagnosis } from "@/lib/turso";
 import { listModelsForHealth } from "@/lib/models";
 import { checkMergerHealth } from "@/lib/merger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const EMPTY_DIAG: DbDiagnosis = {
+  urlSet: false,
+  urlPrefix: "",
+  tokenSet: false,
+  tokenLength: 0,
+  connected: false,
+  error: "فشل إجراء التشخيص",
+};
+
 export async function GET() {
-  let dbOk = false;
+  let turso: DbDiagnosis = EMPTY_DIAG;
   try {
-    await ensureSchema();
-    dbOk = await dbHealthy();
+    turso = await diagnoseDb();
+    if (turso.connected) {
+      // أنشئ المخطط عند أول فحص صحي (بلا أخطاء يكسر الرد)
+      await ensureSchema().catch(() => {});
+    }
   } catch {
-    dbOk = false;
+    turso = EMPTY_DIAG;
   }
 
   const mergerBase = (process.env.MERGER_API_BASE || "").trim();
@@ -21,8 +34,9 @@ export async function GET() {
 
   return NextResponse.json(
     {
-      ok: dbOk,
-      database: dbOk ? "turso-connected" : "turso-disconnected",
+      ok: turso.connected,
+      database: turso.connected ? "turso-connected" : "turso-disconnected",
+      turso: turso,
       mcpEndpoint: "/mcp",
       models: listModelsForHealth(),
       merger: { base: mergerBase, healthy: mergerHealthy },

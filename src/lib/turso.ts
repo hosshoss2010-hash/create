@@ -76,6 +76,51 @@ export async function dbHealthy(): Promise<boolean> {
   }
 }
 
+// ===== تشخيص الاتصال — يكشف السبب الدقيق لفشل الوصول للقاعدة =====
+// آمن: يعرض بادئة الرابط وطول التوكن فقط، ولا يعرض التوكن أبدًا.
+
+export interface DbDiagnosis {
+  urlSet: boolean;
+  urlPrefix: string;
+  tokenSet: boolean;
+  tokenLength: number;
+  connected: boolean;
+  error: string | null;
+}
+
+export async function diagnoseDb(): Promise<DbDiagnosis> {
+  const url = (process.env.TURSO_DATABASE_URL ?? "").trim();
+  const token = (process.env.TURSO_AUTH_TOKEN ?? "").trim();
+  const diag: DbDiagnosis = {
+    urlSet: url.length > 0,
+    urlPrefix: url ? url.slice(0, 40) : "",
+    tokenSet: token.length > 0,
+    tokenLength: token.length,
+    connected: false,
+    error: null,
+  };
+
+  if (!url || !token) {
+    diag.error = !url && !token
+      ? "❌ المتغيران TURSO_DATABASE_URL و TURSO_AUTH_TOKEN غير موجودين على الخادم — أضفهما في إعدادات المشروع ثم اعمل Redeploy"
+      : !url
+        ? "❌ المتغير TURSO_DATABASE_URL غير موجود على الخادم — أضفه ثم اعمل Redeploy"
+        : "❌ المتغير TURSO_AUTH_TOKEN غير موجود على الخادم — أضفه ثم اعمل Redeploy";
+    return diag;
+  }
+
+  try {
+    const c = createClient({ url, authToken: token });
+    await c.execute("SELECT 1");
+    diag.connected = true;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // لا نعرض التوكن أبدًا حتى لو ظهر في رسالة الخطأ
+    diag.error = (token ? msg.split(token).join("•••") : msg).slice(0, 300);
+  }
+  return diag;
+}
+
 // ===== أنواع السجلات =====
 
 export interface AttemptRecord {
