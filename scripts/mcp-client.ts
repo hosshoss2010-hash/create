@@ -32,8 +32,16 @@ if (cmd === "list") {
     if (c.type === "text") console.log(c.text);
   }
 } else if (cmd === "raw") {
-  // استدعاء بمعطيات خام من stdin
-  const input = JSON.parse(await Bun.stdin.text());
+  // استدعاء بمعطيات خام من stdin — متوافق مع node وbun معًا (بلا Bun.stdin)
+  const input = JSON.parse(
+    await new Promise<string>((resolve, reject) => {
+      let data = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (chunk) => (data += chunk));
+      process.stdin.on("end", () => resolve(data));
+      process.stdin.on("error", reject);
+    })
+  );
   const res = await client.callTool(input, undefined, {
     onprogress: (p) => console.error(`[progress] ${p.progress}/${p.total}`),
   });

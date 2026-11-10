@@ -32,15 +32,21 @@ IMPORTANT: the server automatically switches API keys in strict order on any fai
 To concatenate several finished clips into one video, call merge_videos with 'urls' (direct links) or 'task_ids' (completed video tasks, in merge order); track it with get_task the same way. Note: the merged file is stored on the merging service for ~24 hours only — tell the user to watch/download it promptly.
 Use list_media to recall previously generated media from the database.`;
 
+/** توقيع إرسال إشعار التقدم — أضيق من ServerNotification ليقبل extra الخاص بالـ SDK */
+type ProgressNotifier = (notification: {
+  method: "notifications/progress";
+  params: { progressToken: string | number; progress: number; total?: number; message?: string };
+}) => Promise<void>;
+
 /** مُرسل التقدم الحي عبر notifications/progress (إذا زوّد العميل progressToken) */
-function progressSender(extra: { _meta?: { progressToken?: unknown }; sendNotification: (n: unknown) => Promise<void> }): OnProgress {
+function progressSender(extra: { _meta?: { progressToken?: unknown }; sendNotification: ProgressNotifier }): OnProgress {
   const token = extra._meta?.progressToken;
   return async (percent, message) => {
     if (token === undefined) return;
     try {
       await extra.sendNotification({
         method: "notifications/progress",
-        params: { progressToken: token, progress: Math.round(percent), total: 100, message },
+        params: { progressToken: token as string | number, progress: Math.round(percent), total: 100, message },
       });
     } catch {
       // انقطاع العميل أثناء البث — تجاهل بهدوء

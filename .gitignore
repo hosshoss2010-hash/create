@@ -52,3 +52,7 @@ prompt
 server.log
 # Skills directory
 /skills/
+# قواعد بيانات محلية — ممنوعة في هذا المشروع (Turso فقط عبر HTTP)
+/db/
+*.db
+*.sqlite
